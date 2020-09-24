@@ -8,7 +8,7 @@ import { ImageParameters, formatParameters } from '@blockframes/media/directives
 import { getDocAndPath } from '@blockframes/firebase-utils';
 import { createPublicUser, PublicUser } from '@blockframes/user/types';
 import { createOrganizationBase, OrganizationDocument } from '@blockframes/organization/+state/organization.firestore';
-import { privacies } from '@blockframes/utils/file-sanitizer';
+import { privacies, Privacy } from '@blockframes/utils/file-sanitizer';
 import { MovieDocument } from './data/types';
 
 /**
@@ -51,9 +51,9 @@ export async function linkFile(data: functions.storage.ObjectMetadata) {
  * Generates an Imgix token for a given protected resource
  * Protected resources are in the "protected" dir of the bucket.
  * An Imgix source must be configured to that directory and marked as private
- * 
- * @param data 
- * @param context 
+ *
+ * @param data
+ * @param context
  * @see https://github.com/imgix/imgix-blueprint#securing-urls
  * @see https://www.notion.so/cascade8/Setup-ImgIx-c73142c04f8349b4a6e17e74a9f2209a
  */
@@ -119,16 +119,28 @@ async function isAllowedToAccessMedia(ref: string, uid: string): Promise<boolean
   }
 }
 
+interface PathInfo { securityLevel: Privacy, collection: string, docId: string }
+
 function getPathInfo(ref: string) {
   const refParts = ref.split('/');
 
-  const pathInfo: Record<string, string | undefined> = {};
-  if (privacies.includes(refParts[0] as any)) {
-    pathInfo.securityLevel = refParts.shift();
+  // if ref starts with `/` refParts[0] will be ""
+  if (ref.startsWith('/')) {
+    refParts.shift();
   }
 
-  pathInfo.collection = refParts.shift();
-  pathInfo.docId = refParts.shift();
+  const pathInfo: PathInfo = {
+    securityLevel: 'protected', // protected by default
+    collection: '',
+    docId: '',
+  };
+
+  if (privacies.includes(refParts[0] as any)) {
+    pathInfo.securityLevel = refParts.shift()! as Privacy;
+  }
+
+  pathInfo.collection = refParts.shift()!;
+  pathInfo.docId = refParts.shift()!;
 
   return pathInfo;
 }
